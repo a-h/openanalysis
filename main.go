@@ -137,6 +137,9 @@ func isDayJobRepo(name string) bool {
 	if strings.HasPrefix(name, "AgileVentures/") {
 		return true
 	}
+	if strings.HasPrefix(name, "makersacademy/") {
+		return true
+	}
 	if strings.Contains(strings.ToLower(name), "nhs") {
 		return true
 	}
