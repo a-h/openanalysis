@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/a-h/openanalysis/read"
 	"github.com/a-h/openanalysis/statistics"
@@ -25,52 +26,66 @@ func jsonOrNothing(v interface{}) []byte {
 }
 
 func summarise(userToStats map[string]*statistics.Statistics) (s summary) {
-	s.ReposTouched = setof.Strings()
+	s = newSummary()
 	for user, stats := range userToStats {
 		s.Issues += stats.Issues.Sum()
-		if s.IssuesTop.Count < stats.Issues.Sum() {
-			s.IssuesTop = userCountOf(user, stats.Issues.Sum())
-		}
+		s.IssuesTop = append(s.IssuesTop, userCountOf(user, stats.Issues.Sum()))
 		s.PullRequestsCreated += stats.PullRequestsCreated.Sum()
-		if s.PullRequestsCreatedTop.Count < stats.PullRequestsCreated.Sum() {
-			s.PullRequestsCreatedTop = userCountOf(user, stats.PullRequestsCreated.Sum())
-		}
+		s.PullRequestsCreatedTop = append(s.PullRequestsCreatedTop, userCountOf(user, stats.PullRequestsCreated.Sum()))
 		s.PullRequestsMerged += stats.PullRequestsMerged.Sum()
-		if s.PullRequestsMergedTop.Count < stats.PullRequestsMerged.Sum() {
-			s.PullRequestsMergedTop = userCountOf(user, stats.PullRequestsMerged.Sum())
-		}
+		s.PullRequestsMergedTop = append(s.PullRequestsMergedTop, userCountOf(user, stats.PullRequestsMerged.Sum()))
 		s.ReposUpdated += stats.ReposUpdated.Sum()
-		if s.ReposUpdatedTop.Count < stats.ReposUpdated.Sum() {
-			s.ReposUpdatedTop = userCountOf(user, stats.ReposUpdated.Sum())
-		}
+		s.ReposUpdatedTop = append(s.ReposUpdatedTop, userCountOf(user, stats.ReposUpdated.Sum()))
 		s.Repos += stats.Repos
-		if s.ReposTop.Count < stats.Repos {
-			s.ReposTop = userCountOf(user, stats.Repos)
-		}
+		s.ReposTop = append(s.ReposTop, userCountOf(user, stats.Repos))
 		s.Stars += stats.Stars
-		if s.StarsTop.Count < stats.Stars {
-			s.StarsTop = userCountOf(user, stats.Stars)
-		}
+		s.StarsTop = append(s.StarsTop, userCountOf(user, stats.Stars))
 		for _, repo := range stats.ReposTouched.Values() {
 			s.ReposTouched.Add(repo)
 		}
 	}
+
+	sort.Sort(sort.Reverse(s.IssuesTop))
+	s.IssuesTop = s.IssuesTop[0:5]
+	sort.Sort(sort.Reverse(s.PullRequestsCreatedTop))
+	s.PullRequestsCreatedTop = s.PullRequestsCreatedTop[0:5]
+	sort.Sort(sort.Reverse(s.PullRequestsMergedTop))
+	s.PullRequestsMergedTop = s.PullRequestsMergedTop[0:5]
+	sort.Sort(sort.Reverse(s.ReposUpdatedTop))
+	s.ReposUpdatedTop = s.ReposUpdatedTop[0:5]
+	sort.Sort(sort.Reverse(s.ReposTop))
+	s.ReposTop = s.ReposTop[0:5]
+	sort.Sort(sort.Reverse(s.StarsTop))
+	s.StarsTop = s.StarsTop[0:5]
+
 	return s
+}
+
+func newSummary() summary {
+	return summary{
+		IssuesTop:              make(userCounts, 0),
+		PullRequestsCreatedTop: make(userCounts, 0),
+		PullRequestsMergedTop:  make(userCounts, 0),
+		ReposUpdatedTop:        make(userCounts, 0),
+		ReposTop:               make(userCounts, 0),
+		StarsTop:               make(userCounts, 0),
+		ReposTouched:           setof.Strings(),
+	}
 }
 
 type summary struct {
 	Issues                 int              `json:"issues"`
-	IssuesTop              userCount        `json:"issuesTop"`
+	IssuesTop              userCounts       `json:"issuesTop"`
 	PullRequestsCreated    int              `json:"pullRequestsCreated"`
-	PullRequestsCreatedTop userCount        `json:"pullRequestsCreatedTop"`
+	PullRequestsCreatedTop userCounts       `json:"pullRequestsCreatedTop"`
 	PullRequestsMerged     int              `json:"pullRequestsMerged"`
-	PullRequestsMergedTop  userCount        `json:"pullRequestsMergedTop"`
+	PullRequestsMergedTop  userCounts       `json:"pullRequestsMergedTop"`
 	ReposUpdated           int              `json:"reposUpdated"`
-	ReposUpdatedTop        userCount        `json:"reposUpdatedTop"`
+	ReposUpdatedTop        userCounts       `json:"reposUpdatedTop"`
 	Repos                  int              `json:"repos"`
-	ReposTop               userCount        `json:"reposTop"`
+	ReposTop               userCounts       `json:"reposTop"`
 	Stars                  int              `json:"stars"`
-	StarsTop               userCount        `json:"starsTop"`
+	StarsTop               userCounts       `json:"starsTop"`
 	ReposTouched           *setof.StringSet `json:"reposTouched"`
 }
 
@@ -85,3 +100,9 @@ type userCount struct {
 	User  string `json:"user"`
 	Count int    `json:"count"`
 }
+
+type userCounts []userCount
+
+func (uc userCounts) Len() int           { return len(uc) }
+func (uc userCounts) Swap(i, j int)      { uc[i], uc[j] = uc[j], uc[i] }
+func (uc userCounts) Less(i, j int) bool { return uc[i].Count < uc[j].Count }
