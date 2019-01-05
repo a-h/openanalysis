@@ -225,3 +225,95 @@ type userPullRequestsQueryResult struct {
 		} `json:"pullRequests"`
 	} `json:"user"`
 }
+
+// UserRepository within Github.
+type UserRepository struct {
+	Login             string    `json:"login"`
+	RepoNameWithOwner string    `json:"repoNameWithOwner"`
+	RepoDescription   string    `json:"repoDescription"`
+	RepoIsPrivate     bool      `json:"repoIsPrivate"`
+	Stars             int       `json:"stars"`
+	UpdatedAt         time.Time `json:"updatedAt"`
+}
+
+// NewUserRepository creates an issue with all fields populated.
+func NewUserRepository(login, repoNameWithOwner, repoDescription string, repoIsPrivate bool, stars int, updatedAt time.Time) UserRepository {
+	return UserRepository{
+		Login:             login,
+		RepoNameWithOwner: repoNameWithOwner,
+		RepoDescription:   repoDescription,
+		Stars:             stars,
+		UpdatedAt:         updatedAt,
+	}
+}
+
+// UserRepositories returns all issues for a given user, by calling the same GraphQL query in a loop for each of the
+// issues.
+func (c Collector) UserRepositories(ctx context.Context, login string) (repos []UserRepository, err error) {
+	var cursor *string
+	for {
+		res, issErr := c.userRepositoriesPage(ctx, login, maximumPageSize, cursor)
+		if issErr != nil {
+			err = fmt.Errorf("collector: failed to get issues for user '%s': %v", login, issErr)
+			return
+		}
+		for _, n := range res.User.Repositories.Nodes {
+			repos = append(repos, NewUserRepository(login, n.NameWithOwner, n.Description, false, n.Stargazers.TotalCount, n.UpdatedAt))
+		}
+		cursor = &res.User.Repositories.PageInfo.EndCursor
+		if !res.User.Repositories.PageInfo.HasNextPage {
+			return
+		}
+	}
+}
+
+func (c Collector) userRepositoriesPage(ctx context.Context, login string, first int, cursor *string) (result userRepositoriesQueryResult, err error) {
+	req := graphql.NewRequest(userRepositoriesQuery)
+
+	req.Var("login", login)
+	req.Var("first", first)
+	req.Var("cursor", cursor)
+
+	req.Header.Set("Cache-Control", "no-cache")
+
+	err = c.client(ctx).Run(ctx, req, &result)
+	return
+}
+
+const userRepositoriesQuery = `query ($login: String!, $first: Int!, $cursor: String) {
+  user(login: $login) {
+    repositories(privacy:PUBLIC, first:$first, after: $cursor) {
+      pageInfo {
+        endCursor
+        hasNextPage
+      }
+      nodes {
+        nameWithOwner
+        description
+        stargazers {
+          totalCount
+        }
+        updatedAt
+      }
+    }
+  }
+}`
+
+type userRepositoriesQueryResult struct {
+	User struct {
+		Repositories struct {
+			PageInfo struct {
+				EndCursor   string `json:"endCursor"`
+				HasNextPage bool   `json:"hasNextPage"`
+			} `json:"pageInfo"`
+			Nodes []struct {
+				NameWithOwner string `json:"nameWithOwner"`
+				Description   string `json:"description"`
+				Stargazers    struct {
+					TotalCount int `json:"totalCount"`
+				} `json:"stargazers"`
+				UpdatedAt time.Time `json:"updatedAt"`
+			} `json:"nodes"`
+		} `json:"repositories"`
+	} `json:"user"`
+}
