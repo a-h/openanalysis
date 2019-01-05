@@ -87,7 +87,7 @@ func getStats(c *github.Collector, login string, start, end time.Time) (stats *s
 		if issue.RepoIsPrivate {
 			continue
 		}
-		if isInfinityWorksRepo(issue.RepoNameWithOwner) {
+		if isDayJobRepo(issue.RepoNameWithOwner) {
 			continue
 		}
 		stats.Issues.Add(issue.CreatedAt, 1)
@@ -104,7 +104,7 @@ func getStats(c *github.Collector, login string, start, end time.Time) (stats *s
 		if pr.RepoIsPrivate {
 			continue
 		}
-		if isInfinityWorksRepo(pr.RepoNameWithOwner) {
+		if isDayJobRepo(pr.RepoNameWithOwner) {
 			continue
 		}
 		if pr.MergedAt != nil {
@@ -130,6 +130,18 @@ func getStats(c *github.Collector, login string, start, end time.Time) (stats *s
 	return
 }
 
-func isInfinityWorksRepo(name string) bool {
-	return strings.HasPrefix(name, "infinityworks/")
+func isDayJobRepo(name string) bool {
+	if strings.HasPrefix(name, "infinityworks/") {
+		return true
+	}
+	if strings.HasPrefix(name, "AgileVentures/") {
+		return true
+	}
+	if strings.Contains(strings.ToLower(name), "nhs") {
+		return true
+	}
+	if strings.HasPrefix(name, "learn-co-students/") {
+		return true
+	}
+	return false
 }
