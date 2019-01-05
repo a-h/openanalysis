@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/machinebox/graphql"
@@ -71,6 +72,10 @@ func (c Collector) UserIssues(ctx context.Context, login string) (issues []UserI
 			return
 		}
 		for _, n := range res.User.Issues.Nodes {
+			// Skip self-owned repos.
+			if strings.HasPrefix(n.Repository.NameWithOwner, login) {
+				continue
+			}
 			issues = append(issues, NewUserIssue(login, n.Repository.NameWithOwner, n.Repository.Description, n.Repository.IsPrivate, n.CreatedAt))
 		}
 		cursor = &res.User.Issues.PageInfo.EndCursor
@@ -282,7 +287,7 @@ func (c Collector) userRepositoriesPage(ctx context.Context, login string, first
 
 const userRepositoriesQuery = `query ($login: String!, $first: Int!, $cursor: String) {
   user(login: $login) {
-    repositories(privacy:PUBLIC, first:$first, after: $cursor) {
+    repositories(privacy:PUBLIC, isFork:false, ownerAffiliations:OWNER, first:$first, after: $cursor) {
       pageInfo {
         endCursor
         hasNextPage
