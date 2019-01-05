@@ -27,7 +27,6 @@ func jsonOrNothing(v interface{}) []byte {
 func summarise(userToStats map[string]*statistics.Statistics) (s summary) {
 	s.ReposTouched = setof.Strings()
 	for user, stats := range userToStats {
-		fmt.Println("user:", user, "stats:", stats.ReposTouched)
 		s.Issues += stats.Issues.Sum()
 		if s.IssuesTop.Count < stats.Issues.Sum() {
 			s.IssuesTop = userCountOf(user, stats.Issues.Sum())
