@@ -46,17 +46,17 @@ func summarise(userToStats map[string]*statistics.Statistics) (s summary) {
 	}
 
 	sort.Sort(sort.Reverse(s.IssuesTop))
-	s.IssuesTop = s.IssuesTop[0:5]
+	s.IssuesTop = s.IssuesTop[0:10]
 	sort.Sort(sort.Reverse(s.PullRequestsCreatedTop))
-	s.PullRequestsCreatedTop = s.PullRequestsCreatedTop[0:5]
+	s.PullRequestsCreatedTop = s.PullRequestsCreatedTop[0:10]
 	sort.Sort(sort.Reverse(s.PullRequestsMergedTop))
-	s.PullRequestsMergedTop = s.PullRequestsMergedTop[0:5]
+	s.PullRequestsMergedTop = s.PullRequestsMergedTop[0:10]
 	sort.Sort(sort.Reverse(s.ReposUpdatedTop))
-	s.ReposUpdatedTop = s.ReposUpdatedTop[0:5]
+	s.ReposUpdatedTop = s.ReposUpdatedTop[0:10]
 	sort.Sort(sort.Reverse(s.ReposTop))
-	s.ReposTop = s.ReposTop[0:5]
+	s.ReposTop = s.ReposTop[0:10]
 	sort.Sort(sort.Reverse(s.StarsTop))
-	s.StarsTop = s.StarsTop[0:5]
+	s.StarsTop = s.StarsTop[0:10]
 
 	return s
 }
