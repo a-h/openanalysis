@@ -131,100 +131,97 @@ type userIssuesQueryResult struct {
 	} `json:"user"`
 }
 
-// // A Comment on a Github issue.
-// type Comment struct {
-// 	Owner       string    `json:"owner"`
-// 	Repo        string    `json:"repo"`
-// 	IssueNumber int       `json:"issueNumber"`
-// 	URL         string    `json:"url"`
-// 	BodyText    string    `json:"bodyText"`
-// 	UpdatedAt   time.Time `json:"updatedAt"`
-// }
+// UserPullRequest within Github.
+type UserPullRequest struct {
+	Login             string     `json:"login"`
+	RepoNameWithOwner string     `json:"repoNameWithOwner"`
+	RepoDescription   string     `json:"repoDescription"`
+	RepoIsPrivate     bool       `json:"repoIsPrivate"`
+	CreatedAt         time.Time  `json:"createdAt"`
+	MergedAt          *time.Time `json:"mergedAt"`
+}
 
-// // Hash of the comment.
-// func (c Comment) Hash() string {
-// 	j, _ := json.Marshal(c)
-// 	return fmt.Sprintf("%x2", sha256.Sum256([]byte(j)))
-// }
+// NewUserPullRequest creates an issue with all fields populated.
+func NewUserPullRequest(login, repoNameWithOwner, repoDescription string, repoIsPrivate bool, createdAt time.Time, mergedAt *time.Time) UserPullRequest {
+	return UserPullRequest{
+		Login:             login,
+		RepoNameWithOwner: repoNameWithOwner,
+		RepoDescription:   repoDescription,
+		RepoIsPrivate:     repoIsPrivate,
+		CreatedAt:         createdAt,
+		MergedAt:          mergedAt,
+	}
+}
 
-// // NewComment creates a comment with all required fields populated.
-// func NewComment(owner, repo string, issueNumber int, url string, bodyText string, updatedAt time.Time) Comment {
-// 	return Comment{
-// 		Owner:       owner,
-// 		Repo:        repo,
-// 		IssueNumber: issueNumber,
-// 		URL:         url,
-// 		BodyText:    bodyText,
-// 		UpdatedAt:   updatedAt,
-// 	}
-// }
+// UserPullRequests returns all issues for a given user, by calling the same GraphQL query in a loop for each of the
+// issues.
+func (c Collector) UserPullRequests(ctx context.Context, login string) (pullrequests []UserPullRequest, err error) {
+	var cursor *string
+	for {
+		res, issErr := c.userPullRequestsPage(ctx, login, maximumPageSize, cursor)
+		if issErr != nil {
+			err = fmt.Errorf("collector: failed to get issues for user '%s': %v", login, issErr)
+			return
+		}
+		for _, n := range res.User.PullRequests.Nodes {
+			pullrequests = append(pullrequests, NewUserPullRequest(login, n.Repository.NameWithOwner, n.Repository.Description, n.Repository.IsPrivate, n.CreatedAt, n.MergedAt))
+		}
+		cursor = &res.User.PullRequests.PageInfo.EndCursor
+		if !res.User.PullRequests.PageInfo.HasNextPage {
+			return
+		}
+	}
+}
 
-// // Comments retrieves all of the comments for a particular issue.
-// func (c Collector) Comments(ctx context.Context, owner, repo string, issueNumber int) (comments []Comment, err error) {
-// 	var cursor *string
-// 	for {
-// 		res, comErr := c.commentsPage(ctx, owner, repo, issueNumber, maximumPageSize, cursor)
-// 		if comErr != nil {
-// 			err = fmt.Errorf("collector: failed to get comments for repo '%s/%s/issues/%d': %v", owner, repo, issueNumber, comErr)
-// 			return
-// 		}
-// 		for _, n := range res.Repository.Issue.Comments.Nodes {
-// 			comments = append(comments, NewComment(owner, repo, issueNumber, n.URL, n.BodyText, n.UpdatedAt))
-// 		}
-// 		cursor = &res.Repository.Issue.Comments.PageInfo.EndCursor
-// 		if !res.Repository.Issue.Comments.PageInfo.HasNextPage {
-// 			return
-// 		}
-// 	}
-// }
+func (c Collector) userPullRequestsPage(ctx context.Context, login string, first int, cursor *string) (result userPullRequestsQueryResult, err error) {
+	req := graphql.NewRequest(userPullRequestsQuery)
 
-// func (c Collector) commentsPage(ctx context.Context, owner, repo string, issueNumber int, first int, cursor *string) (result commentsQueryResult, err error) {
-// 	req := graphql.NewRequest(commentsQuery)
+	req.Var("login", login)
+	req.Var("first", first)
+	req.Var("cursor", cursor)
 
-// 	req.Var("owner", owner)
-// 	req.Var("repo", repo)
-// 	req.Var("issueNumber", issueNumber)
-// 	req.Var("first", first)
-// 	req.Var("cursor", cursor)
+	req.Header.Set("Cache-Control", "no-cache")
 
-// 	req.Header.Set("Cache-Control", "no-cache")
+	err = c.client(ctx).Run(ctx, req, &result)
+	return
+}
 
-// 	err = c.client(ctx).Run(ctx, req, &result)
-// 	return
-// }
+const userPullRequestsQuery = `query ($login: String!, $first: Int!, $cursor: String) {
+  user(login: $login) {
+    pullRequests(first: $first, after: $cursor) {
+      pageInfo {
+        endCursor
+        hasNextPage
+      }
+      nodes {
+        createdAt
+        mergedAt
+        repository {
+          nameWithOwner
+          isPrivate
+          description
+        }
+      }
+    }
+  }
+}`
 
-// const commentsQuery = `query ($owner: String!, $repo: String!, $issueNumber: Int!, $first: Int!, $cursor: String) {
-//   repository(owner: $owner, name: $repo) {
-//     issue(number: $issueNumber) {
-//       comments(first: $first, after: $cursor) {
-//         pageInfo {
-//           endCursor
-//           hasNextPage
-//         }
-//         nodes {
-//           url
-//           updatedAt
-//           bodyText
-//         }
-//       }
-//     }
-//   }
-// }`
-
-// type commentsQueryResult struct {
-// 	Repository struct {
-// 		Issue struct {
-// 			Comments struct {
-// 				PageInfo struct {
-// 					EndCursor   string `json:"endCursor"`
-// 					HasNextPage bool   `json:"hasNextPage"`
-// 				} `json:"pageInfo"`
-// 				Nodes []struct {
-// 					URL       string    `json:"url"`
-// 					UpdatedAt time.Time `json:"updatedAt"`
-// 					BodyText  string    `json:"bodyText"`
-// 				} `json:"nodes"`
-// 			} `json:"comments"`
-// 		} `json:"issue"`
-// 	} `json:"repository"`
-// }
+type userPullRequestsQueryResult struct {
+	User struct {
+		PullRequests struct {
+			PageInfo struct {
+				EndCursor   string `json:"endCursor"`
+				HasNextPage bool   `json:"hasNextPage"`
+			} `json:"pageInfo"`
+			Nodes []struct {
+				CreatedAt  time.Time  `json:"createdAt"`
+				MergedAt   *time.Time `json:"mergedAt"`
+				Repository struct {
+					NameWithOwner string `json:"nameWithOwner"`
+					IsPrivate     bool   `json:"isPrivate"`
+					Description   string `json:"description"`
+				} `json:"repository"`
+			} `json:"nodes"`
+		} `json:"pullRequests"`
+	} `json:"user"`
+}
