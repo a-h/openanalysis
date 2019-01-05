@@ -238,17 +238,17 @@ type UserRepository struct {
 	RepoDescription   string    `json:"repoDescription"`
 	RepoIsPrivate     bool      `json:"repoIsPrivate"`
 	Stars             int       `json:"stars"`
-	UpdatedAt         time.Time `json:"updatedAt"`
+	PushedAt          time.Time `json:"pushedAt"`
 }
 
 // NewUserRepository creates an issue with all fields populated.
-func NewUserRepository(login, repoNameWithOwner, repoDescription string, repoIsPrivate bool, stars int, updatedAt time.Time) UserRepository {
+func NewUserRepository(login, repoNameWithOwner, repoDescription string, repoIsPrivate bool, stars int, pushedAt time.Time) UserRepository {
 	return UserRepository{
 		Login:             login,
 		RepoNameWithOwner: repoNameWithOwner,
 		RepoDescription:   repoDescription,
 		Stars:             stars,
-		UpdatedAt:         updatedAt,
+		PushedAt:          pushedAt,
 	}
 }
 
@@ -263,7 +263,7 @@ func (c Collector) UserRepositories(ctx context.Context, login string) (repos []
 			return
 		}
 		for _, n := range res.User.Repositories.Nodes {
-			repos = append(repos, NewUserRepository(login, n.NameWithOwner, n.Description, false, n.Stargazers.TotalCount, n.UpdatedAt))
+			repos = append(repos, NewUserRepository(login, n.NameWithOwner, n.Description, false, n.Stargazers.TotalCount, n.PushedAt))
 		}
 		cursor = &res.User.Repositories.PageInfo.EndCursor
 		if !res.User.Repositories.PageInfo.HasNextPage {
@@ -298,7 +298,7 @@ const userRepositoriesQuery = `query ($login: String!, $first: Int!, $cursor: St
         stargazers {
           totalCount
         }
-        updatedAt
+        pushedAt
       }
     }
   }
@@ -317,7 +317,7 @@ type userRepositoriesQueryResult struct {
 				Stargazers    struct {
 					TotalCount int `json:"totalCount"`
 				} `json:"stargazers"`
-				UpdatedAt time.Time `json:"updatedAt"`
+				PushedAt time.Time `json:"pushedAt"`
 			} `json:"nodes"`
 		} `json:"repositories"`
 	} `json:"user"`

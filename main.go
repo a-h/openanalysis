@@ -122,10 +122,10 @@ func getStats(c *github.Collector, login string, start, end time.Time) (stats *s
 		return
 	}
 	for _, r := range repos {
-		stats.ReposUpdated.Add(r.UpdatedAt, 1)
-		stats.AddStars(r.UpdatedAt, r.Stars)
-		stats.IncrementRepo(r.UpdatedAt)
-		stats.AddTouchedRepo(r.UpdatedAt, r.RepoNameWithOwner)
+		stats.ReposUpdated.Add(r.PushedAt, 1)
+		stats.AddStars(r.PushedAt, r.Stars)
+		stats.IncrementRepo(r.PushedAt)
+		stats.AddTouchedRepo(r.PushedAt, r.RepoNameWithOwner)
 	}
 	return
 }
